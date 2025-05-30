@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "545024473042",
+    "project_id": "workers-app-9548e",
+    "storage_bucket": "workers-app-9548e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:545024473042:android:8ce7800f943db35980fa0b",
+        "android_client_info": {
+          "package_name": "com.sreehari.workersapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCwzzAHNz9uKVBsLH8AiuNy1MPPIW8zf10"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
