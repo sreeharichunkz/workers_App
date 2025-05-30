@@ -18,7 +18,20 @@ class _KudosHistoryScreenState extends State<KudosHistoryScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    currentUid = FirebaseAuth.instance.currentUser?.uid;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (currentUid == null) {
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      currentUid = args?['uid'] ?? FirebaseAuth.instance.currentUser?.uid;
+
+      // ✅ Print UID for debug
+      debugPrint('📦 Received UID in KudosHistoryScreen: $currentUid');
+    }
   }
 
   Stream<QuerySnapshot> _getSentKudos() {
@@ -63,7 +76,7 @@ class _KudosHistoryScreenState extends State<KudosHistoryScreen>
                   subtitle: Text(msg),
                   trailing: Text(
                     ts != null
-                        ? "${ts.day}/${ts.month} ${ts.hour}:${ts.minute}"
+                        ? "${ts.day}/${ts.month} ${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}"
                         : '',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
@@ -82,6 +95,10 @@ class _KudosHistoryScreenState extends State<KudosHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (currentUid == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Kudos History"),
