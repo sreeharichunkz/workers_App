@@ -4,8 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class KudosSendScreen extends StatefulWidget {
   final String uid;
   final String name;
+  final String teamId;
 
-  const KudosSendScreen({super.key, required this.uid, required this.name});
+  const KudosSendScreen({
+    super.key,
+    required this.uid,
+    required this.name,
+    required this.teamId,
+  });
 
   @override
   State<KudosSendScreen> createState() => _KudosSendScreenState();
@@ -29,26 +35,29 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
 
       final users =
           querySnapshot.docs
-              .where((doc) => doc.id != widget.uid) // ✅ Exclude current user
+              .where((doc) => doc.id != widget.uid)
               .map((doc) => {'uid': doc.id, 'name': doc['name']})
               .toList();
 
       debugPrint("👥 Filtered teammates: $users");
 
-      setState(() {
-        teammates = users;
-      });
+      if (mounted) {
+        setState(() {
+          teammates = users;
+        });
+      }
     } catch (e) {
       debugPrint("❌ Error fetching users: $e");
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error loading teammates: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error loading teammates: $e")));
+      }
     }
   }
 
   Future<void> sendKudos() async {
     if (selectedTeammate == null || _messageController.text.trim().isEmpty) {
-      debugPrint("⚠️ Missing fields: teammate or message");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Please select a teammate and enter a message"),
@@ -59,6 +68,15 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
 
     final receiver = teammates.firstWhere((t) => t['uid'] == selectedTeammate);
 
+    final receiverDoc =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(selectedTeammate)
+            .get();
+
+    final receiverData = receiverDoc.data();
+    final receiverTeamId = receiverData?['team_id'] ?? '';
+
     final kudosData = {
       'sender_uid': widget.uid,
       'receiver_uid': selectedTeammate,
@@ -66,20 +84,23 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
       'receiver': receiver['name'],
       'message': _messageController.text.trim(),
       'timestamp': Timestamp.now(),
+      'receiver_team_id': receiverTeamId,
+      'likes': [], // ✅ empty likes list
+      'comments': [], // ✅ empty comments list
     };
 
     debugPrint("📬 Sending kudos: $kudosData");
 
     await FirebaseFirestore.instance.collection('kudos').add(kudosData);
 
-    debugPrint("✅ Kudos sent successfully!");
-
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text("Kudos sent!")));
 
     _messageController.clear();
-    setState(() => selectedTeammate = null);
+    if (mounted) {
+      setState(() => selectedTeammate = null);
+    }
   }
 
   @override
@@ -100,18 +121,13 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
                       child: Text(user['name']),
                     );
                   }).toList(),
-              onChanged: (val) {
-                setState(() {
-                  selectedTeammate = val;
-                });
-              },
+              onChanged: (val) => setState(() => selectedTeammate = val),
             ),
             const SizedBox(height: 20),
             TextField(
               controller: _messageController,
               decoration: const InputDecoration(labelText: 'Your message'),
               maxLines: 3,
-              onChanged: (val) => debugPrint("📝 Message changed: $val"),
             ),
             const SizedBox(height: 20),
             ElevatedButton(

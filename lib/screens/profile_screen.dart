@@ -1,97 +1,134 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final String name;
-  final String team;
+  final String uid;
+  final String teamName;
 
-  const ProfileScreen({super.key, required this.name, required this.team});
+  const ProfileScreen({super.key, required this.uid, required this.teamName});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String? photoUrl;
-  bool isLoading = false;
-  final uid = FirebaseAuth.instance.currentUser?.uid;
+  String name = '';
+  String team = '';
+  String email = '';
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadProfilePhoto();
+    _fetchProfileData();
   }
 
-  Future<void> _loadProfilePhoto() async {
-    if (uid == null) return;
-    final doc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    setState(() {
-      photoUrl = doc.data()?['photoUrl'];
-    });
-  }
+  Future<void> _fetchProfileData() async {
+    try {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(widget.uid)
+              .get();
 
-  Future<void> _uploadProfilePhoto() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile == null || uid == null) return;
-
-    setState(() => isLoading = true);
-
-    final file = File(pickedFile.path);
-    final ref = FirebaseStorage.instance.ref().child('users/$uid/profile.jpg');
-    await ref.putFile(file);
-    final downloadUrl = await ref.getDownloadURL();
-
-    await FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'photoUrl': downloadUrl,
-    });
-
-    setState(() {
-      photoUrl = downloadUrl;
-      isLoading = false;
-    });
+      final data = doc.data();
+      if (data != null) {
+        setState(() {
+          name = data['name'] ?? '';
+          team = data['team'] ?? '';
+          email = data['email'] ?? '';
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to fetch profile: $e');
+      setState(() => isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text("Profile", style: TextStyle(fontSize: 24)),
-          const SizedBox(height: 20),
-          Stack(
-            alignment: Alignment.bottomRight,
+    if (isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("My Profile")),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              CircleAvatar(
+              const CircleAvatar(
                 radius: 50,
-                backgroundImage:
-                    photoUrl != null
-                        ? NetworkImage(photoUrl!)
-                        : const AssetImage('assets/profile_placeholder.jpg')
-                            as ImageProvider,
+                backgroundImage: AssetImage('assets/profile_placeholder.png'),
+                backgroundColor: Colors.indigo,
               ),
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blue),
-                onPressed: _uploadProfilePhoto,
+              const SizedBox(height: 20),
+
+              Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+              const SizedBox(height: 6),
+              Text(
+                "Team: $team",
+                style: const TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+
+              const SizedBox(height: 30),
+
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.email),
+                  title: const Text('Email'),
+                  subtitle: Text(email),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.group),
+                  title: const Text('Team Info'),
+                  subtitle: Text(team),
+                ),
+              ),
+
+              const Spacer(),
+
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.popUntil(context, ModalRoute.withName('/'));
+                },
+                icon: const Icon(Icons.logout),
+                label: const Text("Logout"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
             ],
           ),
-          const SizedBox(height: 20),
-          Text("Name: ${widget.name}", style: const TextStyle(fontSize: 18)),
-          Text("Team: ${widget.team}", style: const TextStyle(fontSize: 18)),
-          if (isLoading)
-            const Padding(
-              padding: EdgeInsets.only(top: 16.0),
-              child: CircularProgressIndicator(),
-            ),
-        ],
+        ),
       ),
     );
   }

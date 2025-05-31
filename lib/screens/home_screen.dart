@@ -8,12 +8,14 @@ class HomeScreen extends StatefulWidget {
   final String name;
   final String team;
   final String uid;
+  final String teamId;
 
   const HomeScreen({
     super.key,
     required this.name,
     required this.team,
     required this.uid,
+    required this.teamId,
   });
 
   @override
@@ -64,9 +66,11 @@ class _HomeScreenState extends State<HomeScreen> {
         .where('uid', isEqualTo: widget.uid)
         .get()
         .then((snapshot) {
-          setState(() {
-            moodCount = snapshot.docs.length;
-          });
+          if (mounted) {
+            setState(() {
+              moodCount = snapshot.docs.length;
+            });
+          }
         });
   }
 
@@ -74,21 +78,29 @@ class _HomeScreenState extends State<HomeScreen> {
     final today = DateTime.now();
     final thisMonth = today.month;
 
-    FirebaseFirestore.instance.collection('users').get().then((snapshot) {
-      int count = 0;
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        if (data.containsKey('birthday')) {
-          final birthday = DateTime.parse(data['birthday']);
-          if (birthday.month == thisMonth) {
-            count++;
+    FirebaseFirestore.instance
+        .collection('users')
+        .where('team_id', isEqualTo: widget.teamId)
+        .get()
+        .then((snapshot) {
+          int count = 0;
+
+          for (var doc in snapshot.docs) {
+            final data = doc.data();
+            if (data.containsKey('birthday') && data['birthday'] is Timestamp) {
+              final birthday = (data['birthday'] as Timestamp).toDate();
+              if (birthday.month == thisMonth) {
+                count++;
+              }
+            }
           }
-        }
-      }
-      setState(() {
-        birthdayCount = count;
-      });
-    });
+
+          if (mounted) {
+            setState(() {
+              birthdayCount = count;
+            });
+          }
+        });
   }
 
   void _fetchRecentActivities() {
@@ -109,9 +121,11 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           }
 
-          setState(() {
-            recentActivities = activities;
-          });
+          if (mounted) {
+            setState(() {
+              recentActivities = activities;
+            });
+          }
         });
   }
 
@@ -168,6 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             (_) => KudosSendScreen(
                               uid: widget.uid,
                               name: widget.name,
+                              teamId: widget.teamId,
                             ),
                       ),
                     );
