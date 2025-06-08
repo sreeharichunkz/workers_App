@@ -21,6 +21,14 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
   List<Map<String, dynamic>> teammates = [];
   String? selectedTeammate;
   final TextEditingController _messageController = TextEditingController();
+  final List<String> tagOptions = [
+    'Collaborative',
+    'Project Completion',
+    'Best Presenter',
+    'Problem Solver',
+    'Team Player',
+  ];
+  final List<String> selectedTags = [];
 
   @override
   void initState() {
@@ -39,8 +47,6 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
               .map((doc) => {'uid': doc.id, 'name': doc['name']})
               .toList();
 
-      debugPrint("👥 Filtered teammates: $users");
-
       if (mounted) {
         setState(() {
           teammates = users;
@@ -57,10 +63,14 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
   }
 
   Future<void> sendKudos() async {
-    if (selectedTeammate == null || _messageController.text.trim().isEmpty) {
+    if (selectedTeammate == null ||
+        _messageController.text.trim().isEmpty ||
+        selectedTags.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Please select a teammate and enter a message"),
+          content: Text(
+            "Please select a teammate, enter a message, and choose at least one tag",
+          ),
         ),
       );
       return;
@@ -68,14 +78,20 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
 
     final receiver = teammates.firstWhere((t) => t['uid'] == selectedTeammate);
 
+    // ✅ Ensure receiver's team_id is fetched correctly
     final receiverDoc =
         await FirebaseFirestore.instance
             .collection('users')
             .doc(selectedTeammate)
             .get();
-
     final receiverData = receiverDoc.data();
     final receiverTeamId = receiverData?['team_id'] ?? '';
+
+    // 🧠 Debug prints
+    print('📤 Sending kudos to: ${receiver['name']}');
+    print('🧾 Message: ${_messageController.text.trim()}');
+    print('🏷️ Tags: $selectedTags');
+    print('👥 Team ID: $receiverTeamId');
 
     final kudosData = {
       'sender_uid': widget.uid,
@@ -85,21 +101,28 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
       'message': _messageController.text.trim(),
       'timestamp': Timestamp.now(),
       'receiver_team_id': receiverTeamId,
-      'likes': [], // ✅ empty likes list
-      'comments': [], // ✅ empty comments list
+      'likes': [],
+      'comments': [],
+      'tags': List<String>.from(selectedTags),
     };
 
-    debugPrint("📬 Sending kudos: $kudosData");
-
-    await FirebaseFirestore.instance.collection('kudos').add(kudosData);
-
+    // ⚡️ Optimistic UI update
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text("Kudos sent!")));
 
     _messageController.clear();
     if (mounted) {
-      setState(() => selectedTeammate = null);
+      setState(() {
+        selectedTeammate = null;
+        selectedTags.clear();
+      });
+    }
+
+    try {
+      await FirebaseFirestore.instance.collection('kudos').add(kudosData);
+    } catch (e) {
+      debugPrint("❌ Firestore write failed: $e");
     }
   }
 
@@ -107,7 +130,7 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Send Kudos")),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
@@ -128,6 +151,27 @@ class _KudosSendScreenState extends State<KudosSendScreen> {
               controller: _messageController,
               decoration: const InputDecoration(labelText: 'Your message'),
               maxLines: 3,
+            ),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 8,
+              children:
+                  tagOptions.map((tag) {
+                    final selected = selectedTags.contains(tag);
+                    return FilterChip(
+                      label: Text(tag),
+                      selected: selected,
+                      onSelected: (isSelected) {
+                        setState(() {
+                          if (isSelected) {
+                            selectedTags.add(tag);
+                          } else {
+                            selectedTags.remove(tag);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
             ),
             const SizedBox(height: 20),
             ElevatedButton(

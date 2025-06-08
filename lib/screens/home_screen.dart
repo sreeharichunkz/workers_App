@@ -140,15 +140,55 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Hi, ${widget.name} 👋',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            // Greeting card with background
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.indigo, Colors.blueAccent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.white,
+                    child: Text(
+                      widget.name[0].toUpperCase(),
+                      style: const TextStyle(color: Colors.indigo),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hi, ${widget.name} 👋',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Team: ${widget.team}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      Text(
+                        'Today: $today',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            Text('Team: ${widget.team}'),
-            Text('Today: $today'),
+
             const SizedBox(height: 20),
             const Text(
-              '🔥 This Week\'s Summary',
+              "🔥 This Week's Summary",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
@@ -163,6 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _summaryCard('🎂 Bdays', '$birthdayCount'),
               ],
             ),
+
             const SizedBox(height: 20),
             const Text(
               '🔔 Quick Actions',
@@ -173,50 +214,39 @@ class _HomeScreenState extends State<HomeScreen> {
               spacing: 10,
               runSpacing: 10,
               children: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (_) => KudosSendScreen(
-                              uid: widget.uid,
-                              name: widget.name,
-                              teamId: widget.teamId,
-                            ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.thumb_up),
-                  label: const Text('Send Kudos'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (_) => MoodCheckinScreen(
-                              uid: widget.uid,
-                              name: widget.name,
-                            ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.mood),
-                  label: const Text('Mood Check'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Coming soon: Icebreaker!')),
-                    );
-                  },
-                  icon: const Icon(Icons.question_answer),
-                  label: const Text('Answer Icebreaker'),
-                ),
+                _actionButton('Send Kudos', Icons.thumb_up, () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => KudosSendScreen(
+                            uid: widget.uid,
+                            name: widget.name,
+                            teamId: widget.teamId,
+                          ),
+                    ),
+                  );
+                }),
+                _actionButton('Mood Check', Icons.mood, () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => MoodCheckinScreen(
+                            uid: widget.uid,
+                            name: widget.name,
+                          ),
+                    ),
+                  );
+                }),
+                _actionButton('Answer Icebreaker', Icons.question_answer, () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Coming soon: Icebreaker!')),
+                  );
+                }),
               ],
             ),
+
             const SizedBox(height: 20),
             const Text(
               '📢 Recent Team Activity',
@@ -252,6 +282,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _actionButton(String label, IconData icon, VoidCallback onTap) {
+    return ElevatedButton.icon(
+      style: ElevatedButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      ),
+      onPressed: onTap,
+      icon: Icon(icon),
+      label: Text(label),
     );
   }
 }

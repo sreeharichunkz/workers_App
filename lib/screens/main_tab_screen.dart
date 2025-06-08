@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'kudos_send_screen.dart';
 import 'profile_screen.dart';
+import 'team_feed_activity_screen.dart';
 import 'team_feed_screen.dart';
 
 class MainTabScreen extends StatefulWidget {
@@ -43,6 +44,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
         teamId: widget.teamId,
       ),
       TeamFeedScreen(
+        // <-- ✅ This now wraps both Activity & Leadership
         uid: widget.uid,
         teamId: widget.teamId,
         teamName: widget.team,
@@ -58,7 +60,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
       case 1:
         return 'Send Kudos';
       case 2:
-        return 'Team Feed';
+        return 'Team';
       case 3:
         return 'Profile';
       default:

@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'screens/welcome_screen.dart';
+import 'screens/web/portal_entry_wrapper.dart'; // 🆕 Web entry point
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +22,10 @@ class WorkersApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
       ),
-      home: const WelcomeScreen(), // ✅ Set this as the entry point
+      home:
+          kIsWeb
+              ? const PortalEntryWrapper() // 🖥️ Web version
+              : const WelcomeScreen(), // 📱 Mobile version
     );
   }
 }
