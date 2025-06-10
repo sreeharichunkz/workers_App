@@ -19,23 +19,53 @@ class _MoodCheckinScreenState extends State<MoodCheckinScreen> {
 
   Future<void> submitCheckin() async {
     final comment = _commentController.text.trim();
+    final timestamp = Timestamp.now();
 
     final checkinData = {
       'uid': widget.uid,
       'name': widget.name,
       'mood': moodValue,
       'comment': comment,
-      'timestamp': Timestamp.now(),
+      'timestamp': timestamp,
     };
 
-    await FirebaseFirestore.instance.collection('checkins').add(checkinData);
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.uid);
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Mood check-in submitted!')));
+    try {
+      // 1. Submit to checkins collection (history)
+      await FirebaseFirestore.instance.collection('checkins').add(checkinData);
 
-    _commentController.clear();
-    setState(() => moodValue = 3);
+      // 2. Get current latest mood timestamp
+      final userDoc = await userRef.get();
+      final currentMoodTimestamp =
+          userDoc.data()?['latest_mood']?['timestamp'] as Timestamp? ??
+          Timestamp(0, 0);
+
+      // 3. Only update if new timestamp is more recent
+      if (timestamp.compareTo(currentMoodTimestamp) > 0) {
+        await userRef.update({
+          'latest_mood': {
+            'value': moodValue,
+            'emoji': moods[moodValue - 1],
+            'comment': comment,
+            'timestamp': timestamp,
+          },
+        });
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Mood check-in submitted!')));
+
+      _commentController.clear();
+      setState(() => moodValue = 3);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to submit mood: $e')));
+    }
   }
 
   @override
