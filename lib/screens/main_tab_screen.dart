@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'kudos_send_screen.dart';
 import 'profile_screen.dart';
-import 'team_feed_activity_screen.dart';
 import 'team_feed_screen.dart';
 
 class MainTabScreen extends StatefulWidget {
@@ -25,6 +24,7 @@ class MainTabScreen extends StatefulWidget {
 
 class _MainTabScreenState extends State<MainTabScreen> {
   int _selectedIndex = 0;
+  final GlobalKey<HomeScreenState> _homeKey = GlobalKey();
 
   late final List<Widget> _screens;
 
@@ -33,6 +33,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
     super.initState();
     _screens = [
       HomeScreen(
+        key: _homeKey,
         name: widget.name,
         team: widget.team,
         uid: widget.uid,
@@ -44,7 +45,6 @@ class _MainTabScreenState extends State<MainTabScreen> {
         teamId: widget.teamId,
       ),
       TeamFeedScreen(
-        // <-- ✅ This now wraps both Activity & Leadership
         uid: widget.uid,
         teamId: widget.teamId,
         teamName: widget.team,
@@ -75,6 +75,17 @@ class _MainTabScreenState extends State<MainTabScreen> {
         title: Text(_getTitle(_selectedIndex)),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
+        actions:
+            _selectedIndex == 0
+                ? [
+                  IconButton(
+                    icon: const Icon(Icons.notifications),
+                    onPressed: () {
+                      _homeKey.currentState?.showRecentActivityModal();
+                    },
+                  ),
+                ]
+                : null,
       ),
       body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(

@@ -21,6 +21,7 @@ class _CreateMeetupScreenState extends State<CreateMeetupScreen> {
   String type = 'Coffee';
   final locationController = TextEditingController();
   DateTime? selectedDateTime;
+  int maxPeople = 2;
 
   void _submit() async {
     if (locationController.text.isEmpty || selectedDateTime == null) return;
@@ -32,6 +33,7 @@ class _CreateMeetupScreenState extends State<CreateMeetupScreen> {
       'type': type,
       'location': locationController.text,
       'datetime': selectedDateTime,
+      'max_people': maxPeople,
       'created_at': Timestamp.now(),
     });
 
@@ -62,6 +64,22 @@ class _CreateMeetupScreenState extends State<CreateMeetupScreen> {
               decoration: const InputDecoration(labelText: 'Location'),
             ),
             const SizedBox(height: 12),
+            Row(
+              children: [
+                const Text("Max People: "),
+                Expanded(
+                  child: Slider(
+                    min: 2,
+                    max: 20,
+                    divisions: 18,
+                    label: "$maxPeople",
+                    value: maxPeople.toDouble(),
+                    onChanged: (val) => setState(() => maxPeople = val.toInt()),
+                  ),
+                ),
+                Text("$maxPeople"),
+              ],
+            ),
             ElevatedButton(
               child: Text(
                 selectedDateTime == null
