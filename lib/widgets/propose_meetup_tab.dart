@@ -66,9 +66,12 @@ class _ProposeMeetupTabState extends State<ProposeMeetupTab> {
                 final participants = List<String>.from(
                   data['participants'] ?? [],
                 );
+                final maxPeople = data['max_people'] ?? 2;
                 final dateTime = (data['datetime'] as Timestamp).toDate();
+
                 return data['creator_uid'] != widget.uid &&
                     !participants.contains(widget.uid) &&
+                    participants.length < maxPeople &&
                     dateTime.isAfter(DateTime.now());
               }).toList(),
         );
