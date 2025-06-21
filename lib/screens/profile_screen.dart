@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'welcome_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String uid;
@@ -112,8 +113,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               ElevatedButton.icon(
                 onPressed: () {
-                  Navigator.popUntil(context, ModalRoute.withName('/'));
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                    (route) => false,
+                  );
                 },
+
                 icon: const Icon(Icons.logout),
                 label: const Text("Logout"),
                 style: ElevatedButton.styleFrom(
