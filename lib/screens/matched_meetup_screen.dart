@@ -35,7 +35,7 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
             .collection('users')
             .doc(widget.uid)
             .get();
-    final matchId = userDoc.data()?['current_match_id'];
+    final matchId = userDoc.data()?['current_match_id'] as String?;
     if (matchId == null) {
       setState(() {
         isLoading = false;
@@ -49,21 +49,29 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
         .doc(matchId)
         .snapshots()
         .listen((snapshot) {
-          final createdAt =
-              (snapshot.data()?['created_at'] as Timestamp).toDate();
+          final data = snapshot.data();
+          if (data == null) return;
+
+          final createdAt = (data['created_at'] as Timestamp?)?.toDate();
           final now = DateTime.now();
+          final status = data['status'] as String? ?? 'awaiting_proposal';
+          final acceptedIndex = data['accepted_proposal_index'] as int?;
+          final proposals = List<Map<String, dynamic>>.from(
+            data['proposals'] ?? [],
+          );
 
-          final status = snapshot.data()?['status'];
-
-          if (now.difference(createdAt).inHours > 48) {
-            setState(() {
-              matchDoc = null;
-              isLoading = false;
+          if (status == 'confirmed' &&
+              (acceptedIndex == null ||
+                  acceptedIndex >= proposals.length ||
+                  (proposals[acceptedIndex]['status'] as String?) !=
+                      'accepted')) {
+            snapshot.reference.update({
+              'status': 'awaiting_proposal',
+              'accepted_proposal_index': null,
             });
-            return;
           }
 
-          if (status != 'confirmed') {
+          if (createdAt != null && now.difference(createdAt).inHours < 48) {
             timeRemaining = Duration(hours: 48) - now.difference(createdAt);
             countdownTimer?.cancel();
             countdownTimer = Timer.periodic(
@@ -73,6 +81,9 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
                     timeRemaining = timeRemaining! - const Duration(seconds: 1),
               ),
             );
+          } else {
+            countdownTimer?.cancel();
+            timeRemaining = null;
           }
 
           setState(() {
@@ -89,7 +100,7 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
         (matchDoc!.data() as Map<String, dynamic>)['proposals'] ?? [];
     final newProposal = {
       'proposed_by': widget.uid,
-      'proposed_time': selectedDateTime,
+      'proposed_time': Timestamp.fromDate(selectedDateTime!),
       'location': locationController.text,
       'message': messageController.text,
       'timestamp': Timestamp.now(),
@@ -116,6 +127,7 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
 
   Future<void> _acceptMatch() async =>
       await matchDoc!.reference.update({'status': 'awaiting_proposal'});
+
   Future<void> _rejectMatch() async => _cancelMatch();
 
   Future<void> _acceptProposal(int index) async {
@@ -154,8 +166,8 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
 
   Future<void> _cancelMatch() async {
     final data = matchDoc!.data() as Map<String, dynamic>;
-    final user1Id = data['user1_id'];
-    final user2Id = data['user2_id'];
+    final user1Id = data['user1_id'] as String;
+    final user2Id = data['user2_id'] as String;
 
     await matchDoc!.reference.delete();
     await FirebaseFirestore.instance.collection('users').doc(user1Id).update({
@@ -169,18 +181,24 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
       context,
     ).showSnackBar(const SnackBar(content: Text("Match cancelled.")));
 
-    setState(() => matchDoc = null);
+    setState(() {
+      matchDoc = null;
+      timeRemaining = null;
+      countdownTimer?.cancel();
+    });
   }
 
   String _formatDuration(Duration d) =>
       '${d.inHours} h ${d.inMinutes % 60} m ${d.inSeconds % 60} s left';
 
-  Color _statusColor(String status) {
+  Color _statusColor(String? status) {
     switch (status) {
       case 'accepted':
         return Colors.green.shade200;
       case 'rejected':
         return Colors.red.shade200;
+      case 'awaiting_proposal':
+        return Colors.blue.shade200;
       default:
         return Colors.grey.shade300;
     }
@@ -192,7 +210,10 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
       children: [
         TextField(
           controller: locationController,
-          decoration: const InputDecoration(labelText: 'Location'),
+          decoration: const InputDecoration(
+            labelText: 'Location',
+            hintText: 'Enter meeting location',
+          ),
         ),
         const SizedBox(height: 12),
         ElevatedButton(
@@ -209,16 +230,15 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
               initialTime: TimeOfDay.now(),
             );
             if (time == null) return;
-            setState(
-              () =>
-                  selectedDateTime = DateTime(
-                    date.year,
-                    date.month,
-                    date.day,
-                    time.hour,
-                    time.minute,
-                  ),
-            );
+            setState(() {
+              selectedDateTime = DateTime(
+                date.year,
+                date.month,
+                date.day,
+                time.hour,
+                time.minute,
+              );
+            });
           },
           child: Text(
             selectedDateTime == null
@@ -229,7 +249,10 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
         const SizedBox(height: 12),
         TextField(
           controller: messageController,
-          decoration: const InputDecoration(labelText: 'Message / Reason'),
+          decoration: const InputDecoration(
+            labelText: 'Message / Reason',
+            hintText: 'Optional message for your match',
+          ),
         ),
         const SizedBox(height: 20),
         ElevatedButton.icon(
@@ -245,13 +268,15 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
   void dispose() {
     countdownTimer?.cancel();
     matchSub?.cancel();
+    locationController.dispose();
+    messageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (isLoading) return const Center(child: CircularProgressIndicator());
-    if (matchDoc == null) {
+    if (matchDoc == null || !matchDoc!.exists) {
       return Scaffold(
         appBar: AppBar(title: const Text("Your Matched Meetup")),
         body: const Center(
@@ -262,11 +287,14 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
 
     final data = matchDoc!.data() as Map<String, dynamic>;
     final isUser1 = data['user1_id'] == widget.uid;
-    final partnerName = isUser1 ? data['user2_name'] : data['user1_name'];
-    final status = data['status'];
+    final partnerName =
+        isUser1
+            ? (data['user2_name'] as String? ?? 'Unknown User')
+            : (data['user1_name'] as String? ?? 'Unknown User');
+    final status = data['status'] as String? ?? 'awaiting_proposal';
     final hasAccepted = status != 'pending';
     final proposals = List<Map<String, dynamic>>.from(data['proposals'] ?? []);
-    final acceptedIndex = data['accepted_proposal_index'];
+    final acceptedIndex = data['accepted_proposal_index'] as int?;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Your Matched Meetup")),
@@ -304,7 +332,8 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
                     ),
                   ),
                 ),
-              if (status == 'pending' && !isUser1) ...[
+              if ((status == 'pending' || status == 'awaiting_proposal') &&
+                  !isUser1) ...[
                 const Text(
                   "This user has matched with you. Accept to start conversation.",
                 ),
@@ -324,7 +353,10 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
                   ],
                 ),
               ],
-              if (status == 'confirmed' && acceptedIndex != null)
+              if (status == 'confirmed' &&
+                  acceptedIndex != null &&
+                  acceptedIndex < proposals.length &&
+                  (proposals[acceptedIndex]['status'] as String?) == 'accepted')
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -337,7 +369,7 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          "Meetup confirmed at ${proposals[acceptedIndex]['location']} on ${DateFormat.yMd().add_jm().format((proposals[acceptedIndex]['proposed_time'] as Timestamp).toDate())}",
+                          "Meetup confirmed at ${proposals[acceptedIndex]['location'] as String? ?? 'unknown location'} on ${DateFormat.yMd().add_jm().format((proposals[acceptedIndex]['proposed_time'] as Timestamp).toDate())}",
                           style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
                       ),
@@ -364,7 +396,7 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
                   final time = (p['proposed_time'] as Timestamp).toDate();
                   final accepted = acceptedIndex == index;
                   final byCurrentUser = p['proposed_by'] == widget.uid;
-                  final status = p['status'];
+                  final status = p['status'] as String? ?? 'pending';
 
                   return Card(
                     elevation: 2,
@@ -375,12 +407,13 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
                     child: ListTile(
                       leading: const Icon(Icons.place),
                       title: Text(
-                        "${p['location']} • ${DateFormat.yMd().add_jm().format(time)}",
+                        "${p['location'] as String? ?? 'Location not specified'} • ${DateFormat.yMd().add_jm().format(time)}",
                       ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p['message'] ?? ''),
+                          if (p['message'] != null)
+                            Text(p['message'] as String),
                           Chip(
                             label: Text("Status: $status"),
                             backgroundColor: _statusColor(status),
@@ -395,7 +428,8 @@ class _MatchedMeetupScreenState extends State<MatchedMeetupScreen> {
                               )
                               : (!byCurrentUser &&
                                   hasAccepted &&
-                                  status == 'pending')
+                                  (status == 'pending' ||
+                                      status == 'awaiting_proposal'))
                               ? Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
