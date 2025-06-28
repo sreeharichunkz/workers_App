@@ -6,6 +6,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'mood_checkin_screen.dart';
 import 'kudos_send_screen.dart';
 import 'meetup_screen.dart';
+import 'feedback_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String name;
@@ -346,6 +347,19 @@ class HomeScreenState extends State<HomeScreen> {
                 MaterialPageRoute(
                   builder:
                       (_) => MeetupScreen(
+                        uid: widget.uid,
+                        name: widget.name,
+                        teamId: widget.teamId,
+                      ),
+                ),
+              );
+            }),
+            _actionButton('📣 Submit Feedback', Icons.feedback, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (_) => FeedbackScreen(
                         uid: widget.uid,
                         name: widget.name,
                         teamId: widget.teamId,
